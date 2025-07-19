@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UFO Survivor</title>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.js"></script>
+  <style>
+    body { margin: 0; background: #000; }
+    canvas { display: block; margin: 0 auto; }
+    #startButton {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 20px 40px;
+      font-size: 24px;
+      cursor: pointer;
+      background: #fff;
+      border: none;
+      border-radius: 10px;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+<button id="startButton">Start Game</button>
+<script>
+const config = {
+    type: Phaser.AUTO,
+    width: 800,
+    height: 600,
+    backgroundColor: '#001944',
+    physics: {
+        default: 'arcade',
+        arcade: { debug: false }
+    },
+    scene: { preload, create, update }
+};
+
+let player, cursors, enemies, spawnTimer, scoreText, timerText, healthBar, levelText, highScoreText;
+let score = 0;
+let gameTime = 0;
+let bullets;
+let health = 100;
+let gameStarted = false;
+let bgMusic, shootSfx, hitSfx;
+let level = 1;
+let highScore = localStorage.getItem('highScore') || 0;
+
+const game = new Phaser.Game(config);
+
+document.getElementById('startButton').onclick = () => {
+  game.scene.start('default');
+  document.getElementById('startButton').style.display = 'none';
+  gameStarted = true;
+};
+
+function preload() {
+    this.load.image('ufo', 'og_image.png');
+    this.load.image('monster', 'icon.png');
+    this.load.image('monsterFast', 'icon.png');
+    this.load.image('bullet', 'https://labs.phaser.io/assets/sprites/bullets/bullet11.png');
+    this.load.image('heart', 'https://labs.phaser.io/assets/sprites/heart.png');
+    this.load.audio('bgm', 'https://cdn.pixabay.com/audio/2022/03/15/audio_23e51dcfb3.mp3');
+    this.load.audio('shoot', 'https://cdn.pixabay.com/audio/2022/03/02/audio_3ff7ff00fb.mp3');
+    this.load.audio('hit', 'https://cdn.pixabay.com/audio/2022/03/03/audio_847181db96.mp3');
+}
+
+function create() {
+    bgMusic = this.sound.add('bgm', { loop: true, volume: 0.3 });
+    shootSfx = this.sound.add('shoot');
+    hitSfx = this.sound.add('hit');
+    bgMusic.play();
+
+    player = this.physics.add.sprite(400, 300, 'ufo');
+    player.setCollideWorldBounds(true);
+    player.setScale(2);
+
+    cursors = this.input.keyboard.createCursorKeys();
+
+    enemies = this.physics.add.group();
+    bullets = this.physics.add.group();
+
+    spawnTimer = this.time.addEvent({ delay: 1000, callback: spawnEnemy, callbackScope: this, loop: true });
+    this.time.addEvent({ delay: 1000, callback: () => gameTime++, callbackScope: this, loop: true });
+    this.time.addEvent({ delay: 500, callback: () => shootBullet(this), callbackScope: this, loop: true });
+
+    this.physics.add.overlap(bullets, enemies, bulletHitEnemy, null, this);
+    this.physics.add.collider(player, enemies, hitPlayer, null, this);
+
+    scoreText = this.add.text(10, 10, 'Score: 0', { fontSize: '20px', fill: '#fff' });
+    timerText = this.add.text(10, 40, 'Time: 0s', { fontSize: '20px', fill: '#fff' });
+    levelText = this.add.text(10, 70, 'Level: 1', { fontSize: '20px', fill: '#fff' });
+    highScoreText = this.add.text(10, 100, 'High Score: ' + highScore, { fontSize: '20px', fill: '#fff' });
+
+    healthBar = this.add.graphics();
+    drawHealthBar();
+}
+
+function update() {
+    if (!gameStarted || !player.active) return;
+
+    player.setVelocity(0);
+    if (cursors.left.isDown) player.setVelocityX(-200);
+    else if (cursors.right.isDown) player.setVelocityX(200);
+    if (cursors.up.isDown) player.setVelocityY(-200);
+    else if (cursors.down.isDown) player.setVelocityY(200);
+
+    enemies.children.iterate(enemy => {
+        if (enemy) this.physics.moveToObject(enemy, player, enemy.speed);
+    });
+
+    scoreText.setText('Score: ' + score);
+    timerText.setText('Time: ' + gameTime + 's');
+    levelText.setText('Level: ' + level);
+    drawHealthBar();
+}
+
+function drawHealthBar() {
+    healthBar.clear();
+    healthBar.fillStyle(0xff0000);
+    healthBar.fillRect(10, 130, 100, 15);
+    healthBar.fillStyle(0x00ff00);
+    healthBar.fillRect(10, 130, Math.max(0, health), 15);
+}
+
+function spawnEnemy() {
+    const scene = this;
+    const type = Phaser.Math.Between(0, 1);
+    const side = Phaser.Math.Between(0, 3);
+    let x, y;
+    if (side === 0) { x = 0; y = Phaser.Math.Between(0, 600); }
+    else if (side === 1) { x = 800; y = Phaser.Math.Between(0, 600); }
+    else if (side === 2) { x = Phaser.Math.Between(0, 800); y = 0; }
+    else { x = Phaser.Math.Between(0, 800); y = 600; }
+
+    const enemy = enemies.create(x, y, type ? 'monster' : 'monsterFast');
+    enemy.setScale(type ? 2 : 1.5);
+    enemy.speed = type ? 100 + level * 10 : 150 + level * 10;
+    enemy.setCollideWorldBounds(true);
+    enemy.setBounce(1);
+}
+
+function hitPlayer(player, enemy) {
+    enemy.destroy();
+    health -= 20;
+    hitSfx.play();
+    if (health <= 0) {
+        this.physics.pause();
+        player.setTint(0xff0000);
+        spawnTimer.remove();
+        this.add.text(300, 280, 'Game Over', { fontSize: '32px', fill: '#fff' });
+        bgMusic.stop();
+        if (score > highScore) {
+            localStorage.setItem('highScore', score);
+        }
+    }
+}
+
+function shootBullet(scene) {
+    if (!player.active) return;
+    for (let i = 0; i < level; i++) {
+        const angle = (i - (level - 1) / 2) * 15;
+        const rad = Phaser.Math.DegToRad(angle);
+        const bullet = bullets.create(player.x, player.y, 'bullet');
+        bullet.setScale(0.5);
+        scene.physics.velocityFromRotation(rad - Math.PI / 2, 300, bullet.body.velocity);
+        bullet.lifespan = scene.time.delayedCall(2000, () => bullet.destroy());
+    }
+    shootSfx.play();
+}
+
+function bulletHitEnemy(bullet, enemy) {
+    bullet.destroy();
+    enemy.destroy();
+    score += 10;
+    hitSfx.play();
+
+    if (score % 100 === 0) level++;
+
+    // 드랍 아이템
+    if (Phaser.Math.Between(0, 10) < 2) {
+        const heart = game.scene.scenes[0].physics.add.sprite(enemy.x, enemy.y, 'heart').setScale(0.5);
+        game.scene.scenes[0].physics.add.overlap(player, heart, () => {
+            heart.destroy();
+            health = Math.min(100, health + 20);
+        });
+    }
+}
+</script>
+</body>
+</html>
