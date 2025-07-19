@@ -67,9 +67,9 @@ function preload() {
     this.load.image('monsterFast', 'icon.png');
     this.load.image('bullet', 'https://labs.phaser.io/assets/sprites/bullets/bullet11.png');
     this.load.image('heart', 'https://labs.phaser.io/assets/sprites/heart.png');
-    this.load.audio('bgm', 'https://cdn.pixabay.com/audio/2022/03/15/audio_23e51dcfb3.mp3');
-    this.load.audio('shoot', 'https://cdn.pixabay.com/audio/2022/03/02/audio_3ff7ff00fb.mp3');
-    this.load.audio('hit', 'https://cdn.pixabay.com/audio/2022/03/03/audio_847181db96.mp3');
+    this.load.audio('bgm', 'https://freesound.org/data/previews/415/415209_5121236-lq.mp3');
+    this.load.audio('shoot', 'https://freesound.org/data/previews/341/341695_3248244-lq.mp3');
+    this.load.audio('hit', 'https://freesound.org/data/previews/256/256113_3263906-lq.mp3');
 }
 
 function create() {
@@ -184,7 +184,6 @@ function bulletHitEnemy(bullet, enemy) {
 
     if (score % 100 === 0) level++;
 
-    // 드랍 아이템
     if (Phaser.Math.Between(0, 10) < 2) {
         const heart = game.scene.scenes[0].physics.add.sprite(enemy.x, enemy.y, 'heart').setScale(0.5);
         game.scene.scenes[0].physics.add.overlap(player, heart, () => {
