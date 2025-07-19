@@ -24,13 +24,13 @@
   </style>
 </head>
 <body>
-<button id="startButton">Start Game</button>
+<button id="startButton"><img src="start.png" alt="Start Game" style="width: 300px;"></button>
 <script>
 const config = {
     type: Phaser.AUTO,
     width: 800,
     height: 600,
-    backgroundColor: '#001944',
+    backgroundColor: '#000000',
     physics: {
         default: 'arcade',
         arcade: { debug: false }
@@ -53,15 +53,24 @@ let level = 1;
 let highScore = localStorage.getItem('highScore') || 0;
 
 const game = new Phaser.Game(config);
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+function resumeAudio() {
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+}
 
 document.getElementById('startButton').onclick = () => {
+  resumeAudio();
   game.scene.start('MainScene');
   document.getElementById('startButton').style.display = 'none';
   gameStarted = true;
 };
 
 function playBeep(frequency = 440, duration = 150) {
-  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state !== 'running') return;
+
   const oscillator = audioCtx.createOscillator();
   const gainNode = audioCtx.createGain();
 
@@ -77,14 +86,20 @@ function playBeep(frequency = 440, duration = 150) {
 }
 
 function preload() {
-    this.load.image('ufo', 'og_image.png');
-    this.load.image('monster', 'icon.png');
-    this.load.image('monsterFast', 'icon.png');
+    this.load.image('ufo', 'icon.png');
     this.load.image('bullet', 'https://labs.phaser.io/assets/sprites/bullets/bullet11.png');
     this.load.image('heart', 'https://labs.phaser.io/assets/sprites/heart.png');
 }
 
 function create() {
+    this.cameras.main.setBackgroundColor('#000011');
+
+    const bgStars = this.add.graphics();
+    for (let i = 0; i < 200; i++) {
+        bgStars.fillStyle(0xffffff, 1);
+        bgStars.fillCircle(Phaser.Math.Between(0, 800), Phaser.Math.Between(0, 600), 1);
+    }
+
     player = this.physics.add.sprite(400, 300, 'ufo');
     player.setCollideWorldBounds(true);
     player.setScale(2);
@@ -108,9 +123,6 @@ function create() {
 
     healthBar = this.add.graphics();
     drawHealthBar();
-
-    // Optional: loop a background beep every few seconds to simulate ambiance
-    this.time.addEvent({ delay: 8000, loop: true, callback: () => playBeep(220, 100) });
 }
 
 function update() {
@@ -142,7 +154,6 @@ function drawHealthBar() {
 
 function spawnEnemy() {
     const scene = this;
-    const type = Phaser.Math.Between(0, 1);
     const side = Phaser.Math.Between(0, 3);
     let x, y;
     if (side === 0) { x = 0; y = Phaser.Math.Between(0, 600); }
@@ -150,11 +161,20 @@ function spawnEnemy() {
     else if (side === 2) { x = Phaser.Math.Between(0, 800); y = 0; }
     else { x = Phaser.Math.Between(0, 800); y = 600; }
 
-    const enemy = enemies.create(x, y, type ? 'monster' : 'monsterFast');
-    enemy.setScale(type ? 2 : 1.5);
-    enemy.speed = type ? 100 + level * 10 : 150 + level * 10;
-    enemy.setCollideWorldBounds(true);
-    enemy.setBounce(1);
+    const size = Phaser.Math.Between(8, 16);
+    const enemy = scene.add.graphics();
+    enemy.fillStyle(0xff00ff, 1);
+    enemy.fillRect(-size/2, -size/2, size, size);
+
+    const textureKey = 'monster_' + Date.now();
+    enemy.generateTexture(textureKey, size, size);
+    enemy.destroy();
+
+    const sprite = enemies.create(x, y, textureKey);
+    sprite.setScale(1);
+    sprite.speed = 100 + level * 10;
+    sprite.setCollideWorldBounds(true);
+    sprite.setBounce(1);
 }
 
 function hitPlayer(player, enemy) {
