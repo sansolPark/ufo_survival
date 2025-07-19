@@ -49,7 +49,6 @@ let gameTime = 0;
 let bullets;
 let health = 100;
 let gameStarted = false;
-let bgMusic, shootSfx, hitSfx;
 let level = 1;
 let highScore = localStorage.getItem('highScore') || 0;
 
@@ -61,23 +60,31 @@ document.getElementById('startButton').onclick = () => {
   gameStarted = true;
 };
 
+function playBeep(frequency = 440, duration = 150) {
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const oscillator = audioCtx.createOscillator();
+  const gainNode = audioCtx.createGain();
+
+  oscillator.type = 'square';
+  oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+  gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+
+  oscillator.connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+
+  oscillator.start();
+  oscillator.stop(audioCtx.currentTime + duration / 1000);
+}
+
 function preload() {
     this.load.image('ufo', 'og_image.png');
     this.load.image('monster', 'icon.png');
     this.load.image('monsterFast', 'icon.png');
     this.load.image('bullet', 'https://labs.phaser.io/assets/sprites/bullets/bullet11.png');
     this.load.image('heart', 'https://labs.phaser.io/assets/sprites/heart.png');
-    this.load.audio('bgm', 'https://freesound.org/data/previews/415/415209_5121236-lq.mp3');
-    this.load.audio('shoot', 'https://freesound.org/data/previews/341/341695_3248244-lq.mp3');
-    this.load.audio('hit', 'https://freesound.org/data/previews/256/256113_3263906-lq.mp3');
 }
 
 function create() {
-    bgMusic = this.sound.add('bgm', { loop: true, volume: 0.3 });
-    shootSfx = this.sound.add('shoot');
-    hitSfx = this.sound.add('hit');
-    bgMusic.play();
-
     player = this.physics.add.sprite(400, 300, 'ufo');
     player.setCollideWorldBounds(true);
     player.setScale(2);
@@ -101,6 +108,9 @@ function create() {
 
     healthBar = this.add.graphics();
     drawHealthBar();
+
+    // Optional: loop a background beep every few seconds to simulate ambiance
+    this.time.addEvent({ delay: 8000, loop: true, callback: () => playBeep(220, 100) });
 }
 
 function update() {
@@ -150,13 +160,12 @@ function spawnEnemy() {
 function hitPlayer(player, enemy) {
     enemy.destroy();
     health -= 20;
-    hitSfx.play();
+    playBeep(120, 200);
     if (health <= 0) {
         this.physics.pause();
         player.setTint(0xff0000);
         spawnTimer.remove();
         this.add.text(300, 280, 'Game Over', { fontSize: '32px', fill: '#fff' });
-        bgMusic.stop();
         if (score > highScore) {
             localStorage.setItem('highScore', score);
         }
@@ -173,14 +182,14 @@ function shootBullet(scene) {
         scene.physics.velocityFromRotation(rad - Math.PI / 2, 300, bullet.body.velocity);
         bullet.lifespan = scene.time.delayedCall(2000, () => bullet.destroy());
     }
-    shootSfx.play();
+    playBeep(800, 100);
 }
 
 function bulletHitEnemy(bullet, enemy) {
     bullet.destroy();
     enemy.destroy();
     score += 10;
-    hitSfx.play();
+    playBeep(400, 100);
 
     if (score % 100 === 0) level++;
 
