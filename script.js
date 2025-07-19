@@ -596,19 +596,18 @@ if (isMobile) {
 
 // --- 초기화 및 리사이즈 ---
 function resizeCanvas() {
-    // 캔버스를 뷰포트 크기에 맞게 설정
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    canvas.width = 1024;
+    canvas.height = 1536;
     canvasWidth = canvas.width;
     canvasHeight = canvas.height;
 }
 
 window.addEventListener('resize', resizeCanvas);
-startButton.addEventListener('click', init);
 
-// 모바일 터치 지원
-startButton.addEventListener('touchstart', (e) => {
-    e.preventDefault(); // 이벤트의 기본 동작(예: 더블탭 확대)을 막습니다.
+// 시작 화면을 클릭/터치하면 게임 시작
+startScreen.addEventListener('click', init);
+startScreen.addEventListener('touchstart', (e) => {
+    e.preventDefault();
     init();
 });
 
