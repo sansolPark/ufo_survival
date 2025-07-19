@@ -35,7 +35,12 @@ const config = {
         default: 'arcade',
         arcade: { debug: false }
     },
-    scene: { preload, create, update }
+    scene: {
+        key: 'MainScene',
+        preload,
+        create,
+        update
+    }
 };
 
 let player, cursors, enemies, spawnTimer, scoreText, timerText, healthBar, levelText, highScoreText;
@@ -51,7 +56,7 @@ let highScore = localStorage.getItem('highScore') || 0;
 const game = new Phaser.Game(config);
 
 document.getElementById('startButton').onclick = () => {
-  game.scene.start('default');
+  game.scene.start('MainScene');
   document.getElementById('startButton').style.display = 'none';
   gameStarted = true;
 };
