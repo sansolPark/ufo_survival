@@ -1,226 +1,44 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>UFO Survivor</title>
-  <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.js"></script>
-  <style>
-    body { margin: 0; background: #000; }
-    canvas { display: block; margin: 0 auto; }
-    #startButton {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      padding: 20px 40px;
-      font-size: 24px;
-      cursor: pointer;
-      background: #fff;
-      border: none;
-      border-radius: 10px;
-      z-index: 10;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>UFO Survivor</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<button id="startButton"><img src="start.png" alt="Start Game" style="width: 300px;"></button>
-<script>
-const config = {
-    type: Phaser.AUTO,
-    width: 800,
-    height: 600,
-    backgroundColor: '#000000',
-    physics: {
-        default: 'arcade',
-        arcade: { debug: false }
-    },
-    scene: {
-        key: 'MainScene',
-        preload,
-        create,
-        update
-    }
-};
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div id="ui-layer">
+            <div id="inGameUI" class="hidden">
+                <div id="healthBarContainer">
+                    <div id="healthBar"></div>
+                </div>
+                <div id="score">SCORE: 0</div>
+                <div id="timer">TIME: 0s</div>
+                <div id="highScore">HIGH SCORE: 0</div>
+            </div>
 
-let player, cursors, enemies, spawnTimer, scoreText, timerText, healthBar, levelText, highScoreText;
-let score = 0;
-let gameTime = 0;
-let bullets;
-let health = 100;
-let gameStarted = false;
-let level = 1;
-let highScore = localStorage.getItem('highScore') || 0;
+            <div id="startScreen">
+                <h1>UFO SURVIVOR</h1>
+                <p>PC: 방향키 & 스페이스바<br>모바일: 가상 조이스틱 & 터치</p>
+                <button id="startButton">START GAME</button>
+            </div>
 
-const game = new Phaser.Game(config);
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            <div id="gameOverScreen" class="hidden">
+                <h2>GAME OVER</h2>
+                <p id="finalScore"></p>
+                <p id="finalTime"></p>
+                <p>PC: 스페이스바<br>모바일: 화면 터치하여 재시작</p>
+            </div>
 
-function resumeAudio() {
-    if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-    }
-}
-
-document.getElementById('startButton').onclick = () => {
-  resumeAudio();
-  game.scene.start('MainScene');
-  document.getElementById('startButton').style.display = 'none';
-  gameStarted = true;
-};
-
-function playBeep(frequency = 440, duration = 150) {
-  if (audioCtx.state !== 'running') return;
-
-  const oscillator = audioCtx.createOscillator();
-  const gainNode = audioCtx.createGain();
-
-  oscillator.type = 'square';
-  oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
-  gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
-
-  oscillator.connect(gainNode);
-  gainNode.connect(audioCtx.destination);
-
-  oscillator.start();
-  oscillator.stop(audioCtx.currentTime + duration / 1000);
-}
-
-function preload() {
-    this.load.image('ufo', 'icon.png');
-    this.load.image('bullet', 'https://labs.phaser.io/assets/sprites/bullets/bullet11.png');
-    this.load.image('heart', 'https://labs.phaser.io/assets/sprites/heart.png');
-}
-
-function create() {
-    this.cameras.main.setBackgroundColor('#000011');
-
-    const bgStars = this.add.graphics();
-    for (let i = 0; i < 200; i++) {
-        bgStars.fillStyle(0xffffff, 1);
-        bgStars.fillCircle(Phaser.Math.Between(0, 800), Phaser.Math.Between(0, 600), 1);
-    }
-
-player = this.physics.add.sprite(400, 300, 'ufo');
-player.setCollideWorldBounds(true);
-player.setDisplaySize(64, 64); 
-
-    cursors = this.input.keyboard.createCursorKeys();
-
-    enemies = this.physics.add.group();
-    bullets = this.physics.add.group();
-
-    spawnTimer = this.time.addEvent({ delay: 1000, callback: spawnEnemy, callbackScope: this, loop: true });
-    this.time.addEvent({ delay: 1000, callback: () => gameTime++, callbackScope: this, loop: true });
-    this.time.addEvent({ delay: 500, callback: () => shootBullet(this), callbackScope: this, loop: true });
-
-    this.physics.add.overlap(bullets, enemies, bulletHitEnemy, null, this);
-    this.physics.add.collider(player, enemies, hitPlayer, null, this);
-
-    scoreText = this.add.text(10, 10, 'Score: 0', { fontSize: '20px', fill: '#fff' });
-    timerText = this.add.text(10, 40, 'Time: 0s', { fontSize: '20px', fill: '#fff' });
-    levelText = this.add.text(10, 70, 'Level: 1', { fontSize: '20px', fill: '#fff' });
-    highScoreText = this.add.text(10, 100, 'High Score: ' + highScore, { fontSize: '20px', fill: '#fff' });
-
-    healthBar = this.add.graphics();
-    drawHealthBar();
-}
-
-function update() {
-    if (!gameStarted || !player.active) return;
-
-    player.setVelocity(0);
-    if (cursors.left.isDown) player.setVelocityX(-200);
-    else if (cursors.right.isDown) player.setVelocityX(200);
-    if (cursors.up.isDown) player.setVelocityY(-200);
-    else if (cursors.down.isDown) player.setVelocityY(200);
-
-    enemies.children.iterate(enemy => {
-        if (enemy) this.physics.moveToObject(enemy, player, enemy.speed);
-    });
-
-    scoreText.setText('Score: ' + score);
-    timerText.setText('Time: ' + gameTime + 's');
-    levelText.setText('Level: ' + level);
-    drawHealthBar();
-}
-
-function drawHealthBar() {
-    healthBar.clear();
-    healthBar.fillStyle(0xff0000);
-    healthBar.fillRect(10, 130, 100, 15);
-    healthBar.fillStyle(0x00ff00);
-    healthBar.fillRect(10, 130, Math.max(0, health), 15);
-}
-
-function spawnEnemy() {
-    const scene = this;
-    const side = Phaser.Math.Between(0, 3);
-    let x, y;
-    if (side === 0) { x = 0; y = Phaser.Math.Between(0, 600); }
-    else if (side === 1) { x = 800; y = Phaser.Math.Between(0, 600); }
-    else if (side === 2) { x = Phaser.Math.Between(0, 800); y = 0; }
-    else { x = Phaser.Math.Between(0, 800); y = 600; }
-
-    const size = Phaser.Math.Between(8, 16);
-    const enemy = scene.add.graphics();
-    enemy.fillStyle(0xff00ff, 1);
-    enemy.fillRect(-size/2, -size/2, size, size);
-
-    const textureKey = 'monster_' + Date.now();
-    enemy.generateTexture(textureKey, size, size);
-    enemy.destroy();
-
-    const sprite = enemies.create(x, y, textureKey);
-    sprite.setScale(1);
-    sprite.speed = 100 + level * 10;
-    sprite.setCollideWorldBounds(true);
-    sprite.setBounce(1);
-}
-
-function hitPlayer(player, enemy) {
-    enemy.destroy();
-    health -= 20;
-    playBeep(120, 200);
-    if (health <= 0) {
-        this.physics.pause();
-        player.setTint(0xff0000);
-        spawnTimer.remove();
-        this.add.text(300, 280, 'Game Over', { fontSize: '32px', fill: '#fff' });
-        if (score > highScore) {
-            localStorage.setItem('highScore', score);
-        }
-    }
-}
-
-function shootBullet(scene) {
-    if (!player.active) return;
-    for (let i = 0; i < level; i++) {
-        const angle = (i - (level - 1) / 2) * 15;
-        const rad = Phaser.Math.DegToRad(angle);
-        const bullet = bullets.create(player.x, player.y, 'bullet');
-        bullet.setScale(0.5);
-        scene.physics.velocityFromRotation(rad - Math.PI / 2, 300, bullet.body.velocity);
-        bullet.lifespan = scene.time.delayedCall(2000, () => bullet.destroy());
-    }
-    playBeep(800, 100);
-}
-
-function bulletHitEnemy(bullet, enemy) {
-    bullet.destroy();
-    enemy.destroy();
-    score += 10;
-    playBeep(400, 100);
-
-    if (score % 100 === 0) level++;
-
-    if (Phaser.Math.Between(0, 10) < 2) {
-        const heart = game.scene.scenes[0].physics.add.sprite(enemy.x, enemy.y, 'heart').setScale(0.5);
-        game.scene.scenes[0].physics.add.overlap(player, heart, () => {
-            heart.destroy();
-            health = Math.min(100, health + 20);
-        });
-    }
-}
-</script>
+            <div id="joystick-container" class="hidden">
+                <div id="joystick-base">
+                    <div id="joystick-stick"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
 </body>
 </html>
