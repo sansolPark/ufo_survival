@@ -11,8 +11,13 @@
         <canvas id="gameCanvas"></canvas>
         <div id="ui-layer">
             <div id="inGameUI" class="hidden">
-                <div id="healthBarContainer">
-                    <div id="healthBar"></div>
+                <div id="top-left-ui">
+                    <div id="healthBarContainer">
+                        <div id="healthBar"></div>
+                    </div>
+                    <div id="xpBarContainer">
+                        <div id="xpBar"></div>
+                    </div>
                 </div>
                 <div id="score">SCORE: 0</div>
                 <div id="timer">TIME: 0s</div>
@@ -28,6 +33,13 @@
                 <p id="finalScore"></p>
                 <p id="finalTime"></p>
                 <p>PC: 스페이스바<br>모바일: 화면 터치하여 재시작</p>
+            </div>
+
+            <div id="levelUpScreen" class="hidden">
+                <h2>LEVEL UP!</h2>
+                <div id="upgrade-options-container">
+                    <!-- 업그레이드 옵션이 여기에 동적으로 추가됩니다. -->
+                </div>
             </div>
 
             <div id="joystick-container" class="hidden">

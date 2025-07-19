@@ -73,10 +73,25 @@ canvas {
     border-radius: 10px;
     overflow: hidden;
 }
+#xpBarContainer {
+    width: 200px;
+    height: 15px;
+    background-color: #555;
+    border: 2px solid #fff;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-top: 10px;
+}
 #healthBar {
     width: 100%;
     height: 100%;
     background-color: #00ff00;
+    transition: width 0.2s linear;
+}
+#xpBar {
+    width: 0%;
+    height: 100%;
+    background-color: #00aaff;
     transition: width 0.2s linear;
 }
 #score, #timer, #highScore {
@@ -133,6 +148,43 @@ h2 {
     font-size: 3em;
     color: #ff4747;
     text-shadow: 0 0 15px #ff4747;
+}
+
+#levelUpScreen h2 {
+    color: #00ff00; /* 레벨업 타이틀은 초록색으로 */
+    text-shadow: 0 0 15px #00ff00;
+}
+
+#upgrade-options-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    width: 100%;
+}
+
+.upgrade-option {
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid #00ffff;
+    padding: 15px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.2s;
+}
+
+.upgrade-option:hover {
+    background: rgba(0, 255, 255, 0.3);
+    transform: scale(1.05);
+}
+
+.upgrade-option h3 {
+    font-size: 1.2em;
+    margin-bottom: 5px;
+    color: #00ffff;
+}
+
+.upgrade-option p {
+    font-size: 0.9em;
+    color: #ccc;
 }
 p {
     font-size: 1.2em;

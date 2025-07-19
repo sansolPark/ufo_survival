@@ -20,12 +20,17 @@ const joystickStick = document.getElementById('joystick-stick');
 
 // --- 게임 설정 ---
 let canvasWidth, canvasHeight;
-let player, enemies, projectiles, items, particles;
+let player, enemies, projectiles, items, particles, xpGems;
 let score, startTime, elapsedTime, level;
 let animationFrameId;
 let isGameOver = false;
+let isGamePaused = false; // 게임 일시정지 상태 변수
 let isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 let highScore = localStorage.getItem('ufoSurvivorHighScore') || 0;
+
+// 경험치 관련
+let experience = 0;
+let xpToNextLevel = 100;
 
 // 타이머
 let projectileTimer = 0;
@@ -52,6 +57,9 @@ class Player {
         this.velocity = { x: 0, y: 0 };
         this.shield = { active: false, timer: 0 };
         this.autoAttack = { active: false, timer: 0 };
+        this.xp = 0;
+        this.level = 1;
+        this.xpToNextLevel = 100;
     }
 
     draw() {
@@ -209,6 +217,41 @@ class Item {
     }
 }
 
+// 경험치 보석
+class XpGem {
+    constructor(x, y, value) {
+        this.x = x;
+        this.y = y;
+        this.radius = 6;
+        this.value = value; // 경험치 양
+        this.color = '#00ffdd';
+    }
+
+    draw() {
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        // 다이아몬드 모양으로 그리기
+        ctx.moveTo(this.x, this.y - this.radius);
+        ctx.lineTo(this.x + this.radius, this.y);
+        ctx.lineTo(this.x, this.y + this.radius);
+        ctx.lineTo(this.x - this.radius, this.y);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    update() {
+        // 플레이어를 향해 서서히 끌려오는 로직 (선택사항)
+        const magnetRadius = 100; // 보석이 반응하는 거리
+        const dist = Math.hypot(player.x - this.x, player.y - this.y);
+        if (dist < magnetRadius) {
+            const angle = Math.atan2(player.y - this.y, player.x - this.x);
+            this.x += Math.cos(angle) * 2;
+            this.y += Math.sin(angle) * 2;
+        }
+        this.draw();
+    }
+}
+
 // 폭발 파티클
 class Particle {
      constructor(x, y, color) {
@@ -245,6 +288,7 @@ class Particle {
 
 function init() {
     isGameOver = false;
+    isGamePaused = false;
     score = 0;
     level = 1;
     startTime = Date.now();
@@ -255,6 +299,7 @@ function init() {
     projectiles = [];
     items = [];
     particles = [];
+    xpGems = []; // xpGems 배열 초기화
 
     enemySpawnTimer = 0;
     itemSpawnTimer = 0;
@@ -263,6 +308,7 @@ function init() {
     scoreEl.textContent = 'SCORE: 0';
     timerEl.textContent = 'TIME: 0s';
     healthBar.style.width = '100%';
+    updateXpBar(); // XP 바 초기화
 
     startScreen.classList.add('hidden');
     gameOverScreen.classList.add('hidden');
@@ -273,7 +319,7 @@ function init() {
 }
 
 function animate() {
-    if (isGameOver) return;
+    if (isGameOver || isGamePaused) return; // 게임오버 또는 일시정지 시 업데이트 중단
     animationFrameId = requestAnimationFrame(animate);
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
@@ -334,11 +380,22 @@ function animate() {
             if (distLaser - projectile.radius - enemy.radius < 1) {
                 // hitSound.play().catch(()=>{});
                 createExplosion(enemy.x, enemy.y, enemy.color);
+                xpGems.push(new XpGem(enemy.x, enemy.y, 20)); // 경험치 보석 생성
                 enemies.splice(eIndex, 1);
                 projectiles.splice(pIndex, 1);
                 updateScore(10);
             }
         });
+    });
+
+    // 경험치 보석 업데이트 및 획득
+    xpGems.forEach((gem, index) => {
+        gem.update();
+        const dist = Math.hypot(player.x - gem.x, player.y - gem.y);
+        if (dist - player.radius - gem.radius < 1) {
+            gainExperience(gem.value);
+            xpGems.splice(index, 1);
+        }
     });
 
     // 몬스터 생성
@@ -439,6 +496,65 @@ function createExplosion(x, y, color) {
 function updateScore(amount) {
     score += amount;
     scoreEl.textContent = `SCORE: ${score}`;
+}
+
+function gainExperience(amount) {
+    player.xp += amount;
+    if (player.xp >= player.xpToNextLevel) {
+        levelUp();
+    }
+    updateXpBar();
+}
+
+function updateXpBar() {
+    const xpBar = document.getElementById('xpBar');
+    const percentage = (player.xp / player.xpToNextLevel) * 100;
+    xpBar.style.width = `${percentage}%`;
+}
+
+function levelUp() {
+    player.level++;
+    player.xp -= player.xpToNextLevel;
+    player.xpToNextLevel = Math.floor(player.xpToNextLevel * 1.5); // 다음 레벨까지 필요한 경험치 증가
+    updateXpBar(); // 레벨업 후 XP 바 업데이트
+    handleLevelUp();
+}
+
+function handleLevelUp() {
+    isGamePaused = true; // 게임 일시정지
+    const levelUpScreen = document.getElementById('levelUpScreen');
+    levelUpScreen.classList.remove('hidden');
+    displayUpgradeOptions();
+}
+
+function displayUpgradeOptions() {
+    const optionsContainer = document.getElementById('upgrade-options-container');
+    optionsContainer.innerHTML = ''; // 기존 옵션 초기화
+
+    // TODO: 실제 업그레이드 목록에서 3개를 무작위로 선택하는 로직 추가
+    const sampleOptions = [
+        { name: '체력 +20', description: '최대 체력이 20 증가합니다.', action: () => { player.maxHealth += 20; player.health += 20; } },
+        { name: '공격 속도 +10%', description: '레이저 발사 속도가 10% 빨라집니다.', action: () => { /* 공격 속도 로직 추가 필요 */ } },
+        { name: '이동 속도 +5%', description: 'UFO의 이동 속도가 5% 빨라집니다.', action: () => { player.speed *= 1.05; } },
+    ];
+
+    sampleOptions.forEach(option => {
+        const optionEl = document.createElement('div');
+        optionEl.classList.add('upgrade-option');
+        optionEl.innerHTML = `<h3>${option.name}</h3><p>${option.description}</p>`;
+        optionEl.onclick = () => {
+            option.action();
+            resumeGame();
+        };
+        optionsContainer.appendChild(optionEl);
+    });
+}
+
+function resumeGame() {
+    const levelUpScreen = document.getElementById('levelUpScreen');
+    levelUpScreen.classList.add('hidden');
+    isGamePaused = false;
+    animate(); // 게임 재개
 }
 
 function gameOver() {
