@@ -500,67 +500,91 @@ function updatePlayerVelocity() {
 
 // 모바일 컨트롤
 let joystickActive = false;
+let joystickTouchId = null;
 let joystickStartX = 0;
 let joystickStartY = 0;
 
-if (isMobile) {
-    joystickContainer.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        joystickActive = true;
-        const touch = e.touches[0];
-        joystickStartX = touch.clientX;
-        joystickStartY = touch.clientY;
-    }, { passive: false });
+function handleJoystickStart(e) {
+    e.preventDefault();
+    if (joystickActive) return;
+    const touch = e.changedTouches[0];
+    joystickActive = true;
+    joystickTouchId = touch.identifier;
+    joystickStartX = touch.clientX;
+    joystickStartY = touch.clientY;
+}
 
-    joystickContainer.addEventListener('touchmove', (e) => {
-        e.preventDefault();
-        if (!joystickActive) return;
-        
-        const touch = e.touches[0];
-        const deltaX = touch.clientX - joystickStartX;
-        const deltaY = touch.clientY - joystickStartY;
-        const distance = Math.hypot(deltaX, deltaY);
-        const angle = Math.atan2(deltaY, deltaX);
+function handleJoystickMove(e) {
+    e.preventDefault();
+    if (!joystickActive) return;
 
-        if (distance > 0) {
-            player.velocity.x = Math.cos(angle) * player.speed;
-            player.velocity.y = Math.sin(angle) * player.speed;
-        }
+    Array.from(e.changedTouches).forEach(touch => {
+        if (touch.identifier === joystickTouchId) {
+            const deltaX = touch.clientX - joystickStartY;
+            const deltaY = touch.clientY - joystickStartY;
+            const distance = Math.hypot(deltaX, deltaY);
+            const angle = Math.atan2(deltaY, deltaX);
 
-        const stickMaxDist = joystickBase.clientWidth / 2;
-        const stickX = Math.min(stickMaxDist, distance) * Math.cos(angle);
-        const stickY = Math.min(stickMaxDist, distance) * Math.sin(angle);
-        joystickStick.style.transform = `translate(${stickX}px, ${stickY}px)`;
-
-    }, { passive: false });
-
-    window.addEventListener('touchend', (e) => {
-        e.preventDefault();
-        
-        // 조이스틱 터치 종료
-        const joystickTouchEnded = Array.from(e.changedTouches).some(t => {
-            const rect = joystickBase.getBoundingClientRect();
-            return t.clientX >= rect.left && t.clientX <= rect.right &&
-                   t.clientY >= rect.top && t.clientY <= rect.bottom;
-        });
-
-        if (joystickTouchEnded || e.touches.length === 0) {
-             joystickActive = false;
-             player.velocity.x = 0;
-             player.velocity.y = 0;
-             joystickStick.style.transform = `translate(0px, 0px)`;
-        }
-       
-        // 공격 터치
-        const isJoystickTouch = e.target === joystickBase || e.target === joystickStick;
-        if (!isJoystickTouch) {
-            if (isGameOver) {
-                init();
-            } else if (!player.autoAttack.active) {
-                shootLaser(player.x, player.y, findClosestEnemy());
+            if (distance > 0) {
+                player.velocity.x = Math.cos(angle) * player.speed;
+                player.velocity.y = Math.sin(angle) * player.speed;
             }
+
+            const stickMaxDist = joystickBase.clientWidth / 2;
+            const stickX = Math.min(stickMaxDist, distance) * Math.cos(angle);
+            const stickY = Math.min(stickMaxDist, distance) * Math.sin(angle);
+            joystickStick.style.transform = `translate(${stickX}px, ${stickY}px)`;
         }
     });
+}
+
+function handleJoystickEnd(e) {
+    if (!joystickActive) return;
+
+    Array.from(e.changedTouches).forEach(touch => {
+        if (touch.identifier === joystickTouchId) {
+            joystickActive = false;
+            joystickTouchId = null;
+            player.velocity.x = 0;
+            player.velocity.y = 0;
+            joystickStick.style.transform = 'translate(0px, 0px)';
+        }
+    });
+}
+
+if (isMobile) {
+    // 조이스틱 리스너
+    joystickContainer.addEventListener('touchstart', handleJoystickStart, { passive: false });
+    joystickContainer.addEventListener('touchmove', handleJoystickMove, { passive: false });
+    joystickContainer.addEventListener('touchend', handleJoystickEnd);
+    joystickContainer.addEventListener('touchcancel', handleJoystickEnd);
+
+    // 공격 리스너 (조이스틱 영역 제외)
+    canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        // 조이스틱 터치와 겹치는지 확인
+        let isJoystickTouch = false;
+        Array.from(e.changedTouches).forEach(touch => {
+            if (touch.target === joystickBase || touch.target === joystickStick) {
+                isJoystickTouch = true;
+            }
+        });
+
+        if (isJoystickTouch) return;
+
+        if (!isGameOver && !player.autoAttack.active) {
+            shootLaser(player.x, player.y, findClosestEnemy());
+        }
+    }, { passive: false });
+
+    // 재시작 리스너
+    gameOverScreen.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        if (isGameOver) {
+            init();
+        }
+    });
+
 } else { // PC 클릭 공격
      canvas.addEventListener('click', (e) => {
         if (!isGameOver && !player.autoAttack.active) {
@@ -572,27 +596,21 @@ if (isMobile) {
 
 // --- 초기화 및 리사이즈 ---
 function resizeCanvas() {
-    const container = document.getElementById('game-container');
-    const aspectRatio = 4 / 3;
-    const newWidth = Math.min(window.innerWidth, 800);
-    const newHeight = Math.min(window.innerHeight, 600);
-
-    if (newWidth / newHeight > aspectRatio) {
-        container.style.width = `${newHeight * aspectRatio}px`;
-        container.style.height = `${newHeight}px`;
-    } else {
-        container.style.width = `${newWidth}px`;
-        container.style.height = `${newWidth / aspectRatio}px`;
-    }
-    
-    canvas.width = 800;
-    canvas.height = 600;
+    // 캔버스를 뷰포트 크기에 맞게 설정
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
     canvasWidth = canvas.width;
     canvasHeight = canvas.height;
 }
 
 window.addEventListener('resize', resizeCanvas);
 startButton.addEventListener('click', init);
+
+// 모바일 터치 지원
+startButton.addEventListener('touchstart', (e) => {
+    e.preventDefault(); // 이벤트의 기본 동작(예: 더블탭 확대)을 막습니다.
+    init();
+});
 
 // 초기 실행
 resizeCanvas();
