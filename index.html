@@ -100,9 +100,9 @@ function create() {
         bgStars.fillCircle(Phaser.Math.Between(0, 800), Phaser.Math.Between(0, 600), 1);
     }
 
-    player = this.physics.add.sprite(400, 300, 'ufo');
-    player.setCollideWorldBounds(true);
-    player.setScale(2);
+player = this.physics.add.sprite(400, 300, 'ufo');
+player.setCollideWorldBounds(true);
+player.setDisplaySize(64, 64); 
 
     cursors = this.input.keyboard.createCursorKeys();
 
