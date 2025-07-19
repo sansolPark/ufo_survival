@@ -46,11 +46,16 @@ let itemSpawnTimer = 0;
 // --- 클래스 정의 ---
 
 // 플레이어 (UFO)
+const playerImage = new Image();
+playerImage.src = 'icon.png';
+
 class Player {
     constructor() {
         this.x = canvasWidth / 2;
         this.y = canvasHeight / 2;
-        this.radius = 20;
+        this.radius = 20; // 이미지 크기에 따라 조절 필요
+        this.width = 40; // 이미지의 실제 너비
+        this.height = 40; // 이미지의 실제 높이
         this.speed = 4;
         this.maxHealth = 100;
         this.health = this.maxHealth;
@@ -63,19 +68,7 @@ class Player {
     }
 
     draw() {
-        // UFO 몸체
-        ctx.fillStyle = '#00ffff';
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.closePath();
-
-        // 조종석
-        ctx.fillStyle = '#fff';
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius * 0.5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.closePath();
+        ctx.drawImage(playerImage, this.x - this.width / 2, this.y - this.height / 2, this.width, this.height);
         
         // 방어막
         if (this.shield.active) {
